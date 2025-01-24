@@ -471,6 +471,48 @@ class AddToListBlock(Block):
         yield "updated_list", updated_list
 
 
+class FindInListBlock(Block):
+    class Input(BlockSchema):
+        list: List[Any] = SchemaField(description="The list to search in.")
+        value: Any = SchemaField(description="The value to search for.")
+
+    class Output(BlockSchema):
+        index: int = SchemaField(description="The index of the value in the list.")
+        found: bool = SchemaField(
+            description="Whether the value was found in the list."
+        )
+        not_found_value: Any = SchemaField(
+            description="The value that was not found in the list."
+        )
+
+    def __init__(self):
+        super().__init__(
+            id="5e2c6d0a-1e37-489f-b1d0-8e1812b23333",
+            description="Finds the index of the value in the list.",
+            categories={BlockCategory.BASIC},
+            input_schema=FindInListBlock.Input,
+            output_schema=FindInListBlock.Output,
+            test_input=[
+                {"list": [1, 2, 3, 4, 5], "value": 3},
+                {"list": [1, 2, 3, 4, 5], "value": 6},
+            ],
+            test_output=[
+                ("index", 2),
+                ("found", True),
+                ("found", False),
+                ("not_found_value", 6),
+            ],
+        )
+
+    def run(self, input_data: Input, **kwargs) -> BlockOutput:
+        try:
+            yield "index", input_data.list.index(input_data.value)
+            yield "found", True
+        except ValueError:
+            yield "found", False
+            yield "not_found_value", input_data.value
+
+
 class NoteBlock(Block):
     class Input(BlockSchema):
         text: str = SchemaField(description="The text to display in the sticky note.")
@@ -636,3 +678,43 @@ class UniversalTypeConverterBlock(Block):
             yield "value", converted_value
         except Exception as e:
             yield "error", f"Failed to convert value: {str(e)}"
+
+
+class TextSplitBlock(Block):
+    class Input(BlockSchema):
+        text: str = SchemaField(description="The text to split.")
+        delimiter: str = SchemaField(description="The delimiter to split the text by.")
+        strip: bool = SchemaField(
+            description="Whether to strip the text.", default=True
+        )
+
+    class Output(BlockSchema):
+        texts: list[str] = SchemaField(
+            description="The text split into a list of strings."
+        )
+
+    def __init__(self):
+        super().__init__(
+            id="d5ea33c8-a575-477a-b42f-2fe3be5055ec",
+            description="This block is used to split a text into a list of strings.",
+            categories={BlockCategory.TEXT},
+            input_schema=TextSplitBlock.Input,
+            output_schema=TextSplitBlock.Output,
+            test_input=[
+                {"text": "Hello, World!", "delimiter": ","},
+                {"text": "Hello, World!", "delimiter": ",", "strip": False},
+            ],
+            test_output=[
+                ("texts", ["Hello", "World!"]),
+                ("texts", ["Hello", " World!"]),
+            ],
+        )
+
+    def run(self, input_data: Input, **kwargs) -> BlockOutput:
+        if len(input_data.text) == 0:
+            yield "texts", []
+        else:
+            texts = input_data.text.split(input_data.delimiter)
+            if input_data.strip:
+                texts = [text.strip() for text in texts]
+            yield "texts", texts

@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 from typing import Sequence, cast
 
 from backend.data import db
@@ -120,12 +121,19 @@ def execute_block_test(block: Block):
                 if field_name in block.test_credentials:
                     extra_exec_kwargs[field_name] = block.test_credentials[field_name]
 
+    # inject fake user_id, run_id, graph_id
+    extra_exec_kwargs["user_id"] = uuid.uuid4()
+    extra_exec_kwargs["run_id"] = uuid.uuid4()
+    extra_exec_kwargs["graph_id"] = uuid.uuid4()
+
     for input_data in block.test_input:
         log.info(f"{prefix} in: {input_data}")
 
         for output_name, output_data in block.execute(input_data, **extra_exec_kwargs):
             if output_index >= len(block.test_output):
-                raise ValueError(f"{prefix} produced output more than expected")
+                raise ValueError(
+                    f"{prefix} produced output more than expected {output_index} >= {len(block.test_output)}:\nOutput Expected:\t\t{block.test_output}\nFailed Output Produced:\t('{output_name}', {output_data})\nNote that this may not be the one that was unexpected, but it is the first that triggered the extra output warning"
+                )
             ex_output_name, ex_output_data = block.test_output[output_index]
 
             def compare(data, expected_data):
@@ -142,7 +150,9 @@ def execute_block_test(block: Block):
                 log.info(f"{prefix} {mark} comparing `{data}` vs `{expected_data}`")
                 if not is_matching:
                     raise ValueError(
-                        f"{prefix}: wrong output {data} vs {expected_data}"
+                        f"{prefix}: wrong output {data} vs {expected_data}\n"
+                        f"Output Expected:\t\t{block.test_output}\n"
+                        f"Failed Output Produced:\t('{output_name}', {output_data})"
                     )
 
             compare(output_data, ex_output_data)
